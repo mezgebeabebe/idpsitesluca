@@ -17,7 +17,7 @@
     </script>
 
     <style>
-        /* ====== MAIN STYLES (unchanged) ====== */
+        /* ====== MAIN STYLES (same as before) ====== */
         * {
             margin: 0;
             padding: 0;
@@ -723,8 +723,8 @@
         let selectedLandUse = 'all';
         let map = null;
         let markers = [];
-        let siteCoordinates = {}; // original name → {lat, lon}
-        let normalizedCoordMap = {}; // normalized name → original name
+        let siteCoordinates = {};
+        let normalizedCoordMap = {};
         let coordinatesLoaded = false;
         let excelLoaded = false;
         let dashboardInitialized = false;
@@ -863,7 +863,6 @@
                 'Hamadi Buri': { lat: 8.5, lon: 39.5 },
                 'Mego': { lat: 8.7, lon: 39.8 }
             };
-            // Build normalized map
             buildNormalizedCoordMap();
             coordinatesLoaded = true;
             document.getElementById('coordStatus').innerHTML = '📍 2 sites (sample)';
@@ -909,7 +908,7 @@
             normalizedCoordMap = {};
             for (const [orig, coord] of Object.entries(siteCoordinates)) {
                 const key = normalizeSiteName(orig);
-                normalizedCoordMap[key] = orig; // map normalized -> original
+                normalizedCoordMap[key] = orig;
             }
         }
 
@@ -989,19 +988,24 @@
         }
 
         // ========================================================================
-        // INIT DASHBOARD
+        // INIT DASHBOARD (sorted dropdown)
         // ========================================================================
         function initializeDashboard() {
             if (dashboardInitialized || !siteSummary || siteSummary.length === 0) return;
             dashboardInitialized = true;
+
+            // Populate site select – sorted alphabetically
             const sel = document.getElementById('siteSelect');
+            // Get all site names, sort them
+            const siteNames = siteSummary.map(row => row.SITENAME).sort((a, b) => a.localeCompare(b));
             sel.innerHTML = '<option value="all">🌍 All Sites (Aggregated)</option>';
-            siteSummary.forEach(row => {
+            siteNames.forEach(name => {
                 const opt = document.createElement('option');
-                opt.value = row.SITENAME;
-                opt.textContent = row.SITENAME;
+                opt.value = name;
+                opt.textContent = name;
                 sel.appendChild(opt);
             });
+
             const luSel = document.getElementById('landuseSelect');
             luSel.innerHTML = '<option value="all">All Land Use Types</option>';
             LAND_USE_CLASSES.forEach(cls => {
@@ -1011,6 +1015,7 @@
                 opt.style.color = CLASS_COLORS[cls] || '#95a5a6';
                 luSel.appendChild(opt);
             });
+
             document.getElementById('controls').classList.remove('hidden');
             document.getElementById('mainGrid').classList.remove('hidden');
             document.getElementById('chartsGrid').classList.remove('hidden');
@@ -1058,7 +1063,7 @@
         }
 
         // ========================================================================
-        // UPDATE MAP MARKERS
+        // UPDATE MAP MARKERS (stores site name in marker)
         // ========================================================================
         function updateMapMarkers() {
             if (!map) return;
@@ -1132,6 +1137,8 @@
               </div>
             `;
                 const marker = L.marker([coords.lat, coords.lon], { icon }).bindPopup(popup).addTo(map);
+                // Store the site name for later lookup
+                marker._siteName = displayName;
                 markers.push(marker);
             }
 
@@ -1143,28 +1150,46 @@
         }
 
         // ========================================================================
-        // ZOOM FUNCTIONS (using normalized lookup)
+        // ZOOM FUNCTIONS (improved with fallback)
         // ========================================================================
         function zoomToSite(name) {
             if (!map || name === 'all') return;
-            const coords = getCoordinates(name);
+
+            // First try to get coordinates from our lookup
+            let coords = getCoordinates(name);
+            let foundMarker = null;
+
+            // If no coords found, try to find marker by stored site name
             if (!coords) {
-                console.warn('No coordinates found for site:', name);
+                for (const marker of markers) {
+                    if (marker._siteName && normalizeSiteName(marker._siteName) === normalizeSiteName(name)) {
+                        foundMarker = marker;
+                        coords = marker.getLatLng();
+                        break;
+                    }
+                }
+            }
+
+            if (!coords) {
+                console.warn('No coordinates or marker found for site:', name);
                 return;
             }
-            map.setView([coords.lat, coords.lon], 13, { animate: true });
-            // Find marker by normalized name
-            const normName = normalizeSiteName(name);
-            const marker = markers.find(m => {
-                const popup = m.getPopup();
-                if (popup) {
-                    const content = popup.getContent();
-                    // Check if the popup contains the normalized name (case‑insensitive)
-                    return content && normalizeSiteName(content).includes(normName);
+
+            // Zoom to the coordinates
+            map.setView([coords.lat, coords.lng || coords.lon], 13, { animate: true });
+
+            // If we didn't find a marker earlier, try to find one now to open popup
+            if (!foundMarker) {
+                for (const marker of markers) {
+                    if (marker._siteName && normalizeSiteName(marker._siteName) === normalizeSiteName(name)) {
+                        foundMarker = marker;
+                        break;
+                    }
                 }
-                return false;
-            });
-            if (marker) marker.openPopup();
+            }
+            if (foundMarker) {
+                foundMarker.openPopup();
+            }
         }
 
         function zoomToAll() {
@@ -1600,7 +1625,7 @@
         // ========================================================================
         // STARTUP
         // ========================================================================
-        console.log('🌍 IDP Land Use Change Dashboard (auto‑load, fuzzy matching)');
+        console.log('🌍 IDP Land Use Change Dashboard (auto‑load, sorted, robust zoom)');
         autoLoadFiles();
         setTimeout(() => {
             if (!dashboardInitialized) {
