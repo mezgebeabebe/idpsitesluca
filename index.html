@@ -17,7 +17,7 @@
     </script>
 
     <style>
-        /* ====== MAIN STYLES (same as before) ====== */
+        /* ====== MAIN STYLES (unchanged) ====== */
         * {
             margin: 0;
             padding: 0;
@@ -155,11 +155,43 @@
             font-size: 11px;
             margin-left: 6px;
         }
+        /* Map container */
         #map {
             height: 350px;
             border-radius: 8px;
             z-index: 1;
             background: #f8f9fa;
+        }
+        /* Fullscreen button inside map card */
+        .map-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .map-toolbar button {
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .map-toolbar button:hover {
+            background: #2980b9;
+        }
+        /* Fullscreen mode: make map fill the screen */
+        #map:-webkit-full-screen {
+            height: 100vh !important;
+            width: 100vw !important;
+            border-radius: 0;
+        }
+        #map:fullscreen {
+            height: 100vh !important;
+            width: 100vw !important;
+            border-radius: 0;
         }
         .simple-stats {
             display: grid;
@@ -551,6 +583,9 @@
             <div class="card">
                 <h3>🗺️ Site Locations <span class="badge-count" id="mapCount">0</span></h3>
                 <div id="map"></div>
+                <div class="map-toolbar">
+                    <button onclick="toggleMapFullscreen()">⛶ Fullscreen</button>
+                </div>
                 <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
                     <span style="font-size:11px;color:#7f8c8d;">💡 Click marker for site details</span>
                     <span style="font-size:11px;color:#7f8c8d;">🛰️ Use layer control (top‑right) to switch to satellite</span>
@@ -614,14 +649,14 @@
             </div>
         </div>
 
-        <!-- RANKING & TABLE -->
+        <!-- RANKING & TABLE – titles are now generic -->
         <div class="grid-2 hidden" id="bottomGrid">
             <div class="card">
                 <h3 id="chart3Title">🏆 Most Changed Sites</h3>
                 <div style="height:250px;"><canvas id="rankingChart"></canvas></div>
             </div>
             <div class="card">
-                <h3 id="tableTitle">📋 All Sites – Highest Land Use Cover</h3>
+                <h3 id="tableTitle">📋 Highest Land Use Cover</h3>
                 <div class="table-container">
                     <table>
                         <thead><tr><th>Site</th><th>Highest 2019</th><th>Highest 2025</th><th>Change</th><th>Category</th></tr></thead>
@@ -772,15 +807,20 @@
             else el.textContent = '0 rows';
         }
 
+        // ========================================================================
+        // UPDATE TITLES (now chart3 & table are generic)
+        // ========================================================================
         function updateAllTitles() {
             const siteLabel = isAllSitesMode ? '🌍 All Sites' : currentSite;
             const landUseLabel = selectedLandUse === 'all' ? 'All Types' : (CLASS_DISPLAY_NAMES[selectedLandUse] || selectedLandUse);
             document.getElementById('summaryFilterTag').textContent = siteLabel;
             document.getElementById('summaryLanduseTag').textContent = landUseLabel;
+            // chart1 & chart2 still show site label
             document.getElementById('chart1Title').textContent = `📊 ${siteLabel} – Land Use Changes (2019→2025)`;
             document.getElementById('chart2Title').textContent = `📈 ${siteLabel} – Land Use Composition`;
-            document.getElementById('chart3Title').textContent = `🏆 ${siteLabel} – Most Changed Sites`;
-            document.getElementById('tableTitle').textContent = `📋 ${siteLabel} – Highest Land Use Cover`;
+            // chart3 & table are now generic – no site label
+            document.getElementById('chart3Title').textContent = `🏆 Most Changed Sites`;
+            document.getElementById('tableTitle').textContent = `📋 Highest Land Use Cover`;
             document.getElementById('allSitesNote').classList.toggle('show', isAllSitesMode);
             updateDebugCount();
         }
@@ -996,7 +1036,6 @@
 
             // Populate site select – sorted alphabetically
             const sel = document.getElementById('siteSelect');
-            // Get all site names, sort them
             const siteNames = siteSummary.map(row => row.SITENAME).sort((a, b) => a.localeCompare(b));
             sel.innerHTML = '<option value="all">🌍 All Sites (Aggregated)</option>';
             siteNames.forEach(name => {
@@ -1150,7 +1189,7 @@
         }
 
         // ========================================================================
-        // ZOOM FUNCTIONS (improved with fallback)
+        // ZOOM FUNCTIONS (improved)
         // ========================================================================
         function zoomToSite(name) {
             if (!map || name === 'all') return;
@@ -1196,6 +1235,18 @@
             if (markers.length > 0) {
                 const group = L.featureGroup(markers);
                 map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // ========================================================================
+        // FULL‑SCREEN TOGGLE
+        // ========================================================================
+        function toggleMapFullscreen() {
+            const mapContainer = document.getElementById('map');
+            if (!document.fullscreenElement) {
+                mapContainer.requestFullscreen?.() || mapContainer.webkitRequestFullscreen?.();
+            } else {
+                document.exitFullscreen?.() || document.webkitExitFullscreen?.();
             }
         }
 
@@ -1304,7 +1355,7 @@
         }
 
         // ========================================================================
-        // MAIN UPDATE
+        // MAIN UPDATE – reordered to update map markers before zoom
         // ========================================================================
         function updateDashboard() {
             if (!siteSummary || siteSummary.length === 0) {
@@ -1324,7 +1375,7 @@
             } else {
                 siteData = siteSummary.find(row => row.SITENAME === currentSite);
                 if (!siteData) { showStatus(`⚠️ Site "${currentSite}" not found.`, 'warning'); return; }
-                zoomToSite(currentSite);
+                // We will zoom after markers are updated
             }
             // ensure properties exist
             LAND_USE_CLASSES.forEach(cls => {
@@ -1337,13 +1388,22 @@
                 if (siteData[`${cls}_2025`] === undefined) siteData[`${cls}_2025`] = 0;
             });
 
+            // Update all charts and stats
             try { updateMainChart(siteData); } catch (e) { console.warn('mainChart error:', e); }
             try { updateCompositionChart(siteData); } catch (e) { console.warn('compositionChart error:', e); }
             try { updateRankingChart(); } catch (e) { console.warn('rankingChart error:', e); }
             try { updateStats(siteData); } catch (e) { console.warn('updateStats error:', e); }
             try { updateNarrative(siteData); } catch (e) { console.warn('updateNarrative error:', e); }
             try { populateTable(); } catch (e) { console.warn('populateTable error:', e); }
+
+            // Update markers (this creates the markers)
             try { updateMapMarkers(); } catch (e) { console.warn('updateMapMarkers error:', e); }
+
+            // Now zoom to the selected site (if not 'all') – marker now exists
+            if (!isAllSitesMode) {
+                // small delay to ensure map is updated
+                setTimeout(() => { zoomToSite(currentSite); }, 100);
+            }
         }
 
         // ========================================================================
@@ -1621,11 +1681,12 @@
         window.updateSiteFilter = updateSiteFilter;
         window.updateViewFilter = updateViewFilter;
         window.dismissLoading = dismissLoading;
+        window.toggleMapFullscreen = toggleMapFullscreen;
 
         // ========================================================================
         // STARTUP
         // ========================================================================
-        console.log('🌍 IDP Land Use Change Dashboard (auto‑load, sorted, robust zoom)');
+        console.log('🌍 IDP Land Use Change Dashboard (auto‑load, sorted, zoom fixed, fullscreen)');
         autoLoadFiles();
         setTimeout(() => {
             if (!dashboardInitialized) {
