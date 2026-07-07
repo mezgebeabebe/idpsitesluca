@@ -541,7 +541,7 @@
                     <span class="stat-item">🏠 <strong id="totalSites">0</strong> Sites</span>
                     <span class="stat-item">📊 <strong id="totalClasses">7</strong> Land Use Types</span>
                     <span class="stat-item">📅 <strong>2019 → 2025</strong></span>
-                    <span class="stat-item" id="coordStatus">📍 Loading…</span>
+                    
                 </div>
             </div>
         </div>
@@ -1063,7 +1063,7 @@
             currentView = 'overall';
             updateAllTitles();
             setTimeout(() => { try { updateDashboard(); } catch (e) { console.error('Initial update failed:', e); } }, 400);
-            showStatus('🎉 Dashboard ready! Select a site to view details.', 'success');
+            showStatus('Dashboard ready! Select a site to view details.', 'success');
         }
 
         // ========================================================================
