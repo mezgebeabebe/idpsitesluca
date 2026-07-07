@@ -17,7 +17,7 @@
     </script>
 
     <style>
-        /* ====== MAIN STYLES ====== */
+        /* ====== MAIN STYLES (unchanged) ====== */
         * {
             margin: 0;
             padding: 0;
@@ -65,37 +65,6 @@
         }
         .header-stats .stat-item strong {
             font-size: 16px;
-        }
-        .upload-section {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-        .upload-area {
-            border: 2px dashed #3498db;
-            padding: 25px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: #f8f9fa;
-        }
-        .upload-area:hover {
-            border-color: #2ecc71;
-            background: #f0fdf4;
-        }
-        .upload-area input {
-            display: none;
-        }
-        .upload-area .icon {
-            font-size: 36px;
-        }
-        .upload-area .filename {
-            color: #2ecc71;
-            font-weight: bold;
-            margin-top: 5px;
         }
         .controls {
             display: flex;
@@ -224,8 +193,6 @@
             color: #95a5a6;
             margin-top: 2px;
         }
-
-        /* ---- NARRATIVE BOX (expanded) ---- */
         .narrative-box {
             margin-top: 12px;
             padding: 12px 16px;
@@ -254,15 +221,6 @@
             color: #e74c3c;
             font-weight: 600;
         }
-        .narrative-box .highlight-tree {
-            color: #2e7d32;
-            font-weight: 600;
-        }
-        .narrative-box .highlight-crop {
-            color: #f9a825;
-            font-weight: 600;
-        }
-
         .table-container {
             max-height: 280px;
             overflow-y: auto;
@@ -421,20 +379,6 @@
         .loading-box .dismiss-btn:hover {
             background: #2980b9;
         }
-        .coord-upload-area {
-            border: 2px dashed #e67e22;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
-            background: #fef9e7;
-            display: none;
-        }
-        .coord-upload-area.show {
-            display: block;
-        }
-        .coord-upload-area input {
-            display: none;
-        }
         .chart-legend {
             display: flex;
             gap: 20px;
@@ -549,9 +493,9 @@
         <div class="loading-box">
             <div class="spinner"></div>
             <h2>🌍 Loading Dashboard...</h2>
-            <div class="sub" id="loadingStatus">Looking for LandUse_Change_Complete.xlsx & site_coordinates.csv…</div>
+            <div class="sub" id="loadingStatus">Auto‑loading data files…</div>
             <button class="dismiss-btn" onclick="dismissLoading()">📊 Continue to Dashboard</button>
-            <div style="margin-top:10px;font-size:11px;color:#95a5a6;">Place files in the same folder, or upload manually.</div>
+            <div style="margin-top:10px;font-size:11px;color:#95a5a6;">If data fails to load, check that<br><strong>LandUse_Change_Complete.xlsx</strong> and <strong>site_coordinates.csv</strong><br>are in the same folder.</div>
         </div>
     </div>
 
@@ -573,34 +517,12 @@
             </div>
         </div>
 
-        <!-- STATUS -->
+        <!-- STATUS MESSAGE -->
         <div id="statusMessage" class="status-msg"></div>
 
         <!-- ALL SITES NOTE -->
         <div class="all-sites-note" id="allSitesNote">
             🌟 <strong>All Sites Mode</strong> – Showing aggregated data across all IDP sites
-        </div>
-
-        <!-- UPLOAD -->
-        <div class="upload-section" id="uploadSection">
-            <h3 style="font-size:16px;margin-bottom:10px;">📁 Manual Upload (fallback)</h3>
-            <div class="upload-area" id="uploadArea">
-                <div class="icon">📊</div>
-                <p><strong>Click or drag &amp; drop</strong> your Excel file here</p>
-                <p style="font-size:12px;color:#95a5a6;">Supports: .xlsx, .xls  |  Sheet name: <strong>Site_Summary</strong></p>
-                <div class="filename" id="filename"></div>
-                <input type="file" id="fileInput" accept=".xlsx,.xls" />
-            </div>
-            <div class="coord-upload-area" id="coordUploadArea">
-                <p style="font-size:13px;color:#a04000;margin-bottom:8px;">
-                    📍 <strong>Upload Coordinates CSV</strong>
-                </p>
-                <div class="upload-area" id="coordUploadArea2" style="border-color:#e67e22;padding:15px;">
-                    <p style="font-size:13px;">📁 Click to upload coordinates CSV</p>
-                    <input type="file" id="coordFileInput" accept=".csv" />
-                </div>
-            </div>
-            <div id="sampleBtnContainer" style="margin-top:12px;"></div>
         </div>
 
         <!-- CONTROLS -->
@@ -668,7 +590,7 @@
                     </div>
                 </div>
 
-                <!-- ===== EXPANDED NARRATIVE SUMMARY ===== -->
+                <!-- NARRATIVE -->
                 <div class="narrative-box" id="narrativeBox">
                     <strong>📝 Landscape Narrative:</strong>
                     <div id="narrativeText">Select a site or load data to see a detailed summary.</div>
@@ -742,7 +664,7 @@
         };
 
         // ========================================================================
-        // SAMPLE DATA (fallback if no Excel found)
+        // SAMPLE DATA (fallback)
         // ========================================================================
         const SAMPLE_DATA = [{
             SITENAME: 'Hamadi Buri',
@@ -801,7 +723,8 @@
         let selectedLandUse = 'all';
         let map = null;
         let markers = [];
-        let siteCoordinates = {};
+        let siteCoordinates = {}; // original name → {lat, lon}
+        let normalizedCoordMap = {}; // normalized name → original name
         let coordinatesLoaded = false;
         let excelLoaded = false;
         let dashboardInitialized = false;
@@ -818,6 +741,14 @@
             const g = parseInt(hex.slice(3, 5), 16);
             const b = parseInt(hex.slice(5, 7), 16);
             return `rgba(${r},${g},${b},${a})`;
+        }
+
+        // ========================================================================
+        // HELPER: Normalize site names
+        // ========================================================================
+        function normalizeSiteName(name) {
+            if (!name) return '';
+            return name.trim().toLowerCase();
         }
 
         // ========================================================================
@@ -855,11 +786,11 @@
         }
 
         // ========================================================================
-        // PROCESS DATA (handles both Excel and Sample)
+        // PROCESS DATA (Excel)
         // ========================================================================
         function processData(rawData) {
             if (!rawData || rawData.length === 0) {
-                showStatus('⚠️ No data found in the uploaded file.', 'warning');
+                console.warn('processData: empty data');
                 return;
             }
             const firstRow = rawData[0] || {};
@@ -925,27 +856,29 @@
         // LOAD SAMPLE DATA (fallback)
         // ========================================================================
         function loadSampleData() {
+            console.log('Loading sample data (fallback)');
             processData(SAMPLE_DATA);
-            document.getElementById('filename').textContent = '✅ Loaded: Sample Data (2 sites)';
             usingSampleData = true;
             siteCoordinates = {
                 'Hamadi Buri': { lat: 8.5, lon: 39.5 },
                 'Mego': { lat: 8.7, lon: 39.8 }
             };
+            // Build normalized map
+            buildNormalizedCoordMap();
             coordinatesLoaded = true;
             document.getElementById('coordStatus').innerHTML = '📍 2 sites (sample)';
             document.getElementById('coordStatus').style.color = '#2ecc71';
-            document.getElementById('sampleBtnContainer').innerHTML = '';
             if (excelLoaded) initializeDashboard();
         }
 
         // ========================================================================
-        // PROCESS COORDINATES
+        // PROCESS COORDINATES (CSV)
         // ========================================================================
         function processCoordinates(csvText) {
             try {
                 const lines = csvText.split('\n');
                 let loaded = 0;
+                const newCoords = {};
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (!line) continue;
@@ -955,12 +888,14 @@
                         const lat = parseFloat(parts[1]);
                         const lon = parseFloat(parts[2]);
                         if (name && !isNaN(lat) && !isNaN(lon)) {
-                            siteCoordinates[name] = { lat, lon };
+                            newCoords[name] = { lat, lon };
                             loaded++;
                         }
                     }
                 }
                 if (loaded > 0) {
+                    siteCoordinates = newCoords;
+                    buildNormalizedCoordMap();
                     coordinatesLoaded = true;
                     if (map) updateMapMarkers();
                 }
@@ -968,12 +903,33 @@
         }
 
         // ========================================================================
-        // AUTO‑LOAD (targets specified files)
+        // Build normalized lookup map
+        // ========================================================================
+        function buildNormalizedCoordMap() {
+            normalizedCoordMap = {};
+            for (const [orig, coord] of Object.entries(siteCoordinates)) {
+                const key = normalizeSiteName(orig);
+                normalizedCoordMap[key] = orig; // map normalized -> original
+            }
+        }
+
+        // ========================================================================
+        // Lookup coordinates by site name (case‑insensitive, trimmed)
+        // ========================================================================
+        function getCoordinates(siteName) {
+            if (!siteName || siteName === 'all') return null;
+            const norm = normalizeSiteName(siteName);
+            const orig = normalizedCoordMap[norm];
+            if (orig) return siteCoordinates[orig];
+            return null;
+        }
+
+        // ========================================================================
+        // AUTO‑LOAD
         // ========================================================================
         async function autoLoadFiles() {
             document.getElementById('loadingStatus').textContent = 'Looking for LandUse_Change_Complete.xlsx & site_coordinates.csv…';
 
-            // 1. Try Excel
             const excelPaths = ['LandUse_Change_Complete.xlsx', './LandUse_Change_Complete.xlsx'];
             let excelFound = false;
             for (const path of excelPaths) {
@@ -991,19 +947,15 @@
                             const raw = XLSX.utils.sheet_to_json(sheet);
                             if (raw && raw.length > 0) {
                                 processData(raw);
-                                document.getElementById('filename').textContent = '✅ Auto‑loaded: ' + path;
-                                showStatus(`✅ Excel auto‑loaded successfully! (${raw.length} sites)`, 'success');
                                 excelFound = true;
                                 break;
                             }
                         }
                     }
-                } catch (_) { /* ignore */ }
+                } catch (_) {}
             }
 
-            // 2. Try Coordinates
             const coordPaths = ['site_coordinates.csv', './site_coordinates.csv'];
-            let coordFound = false;
             for (const path of coordPaths) {
                 try {
                     const resp = await fetch(path);
@@ -1014,74 +966,27 @@
                         document.getElementById('coordStatus').innerHTML = `📍 ${count} sites`;
                         document.getElementById('coordStatus').style.color = '#2ecc71';
                         showStatus(`✅ Coordinates loaded: ${count} sites`, 'success');
-                        coordFound = true;
                         break;
                     }
-                } catch (_) { /* ignore */ }
+                } catch (_) {}
             }
 
-            // 3. If no Excel, show sample button
             if (!excelFound) {
-                document.getElementById('loadingStatus').textContent = 'Excel not found. Use sample data or upload.';
-                document.getElementById('coordUploadArea').classList.add('show');
-                const container = document.getElementById('sampleBtnContainer');
-                const btn = document.createElement('button');
-                btn.textContent = '📊 Load Sample Data';
-                btn.style.cssText =
-                    'padding:8px 25px;background:#8e44ad;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;';
-                btn.onclick = loadSampleData;
-                container.appendChild(btn);
+                console.warn('Excel not found – loading sample data');
+                document.getElementById('loadingStatus').textContent = 'Excel not found – using sample data.';
+                loadSampleData();
             } else {
                 document.getElementById('loadingStatus').textContent = '✅ Data loaded!';
             }
 
             document.getElementById('loadingOverlay').style.display = 'none';
             if (excelLoaded) initializeDashboard();
-            else showStatus('📁 Load sample data or upload files manually', 'info');
+            else {
+                if (!siteSummary) loadSampleData();
+                if (siteSummary) initializeDashboard();
+                else showStatus('⚠️ Could not load any data. Check console.', 'error');
+            }
         }
-
-        // ========================================================================
-        // FILE UPLOAD HANDLERS (manual fallback)
-        // ========================================================================
-        document.getElementById('uploadArea').addEventListener('click', () => document.getElementById('fileInput').click());
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                try {
-                    const data = new Uint8Array(ev.target.result);
-                    const wb = XLSX.read(data, { type: 'array' });
-                    let sheet = wb.Sheets['Site_Summary'];
-                    if (!sheet) { const first = wb.SheetNames[0]; if (first) sheet = wb.Sheets[first]; }
-                    if (!sheet) { showStatus('❌ No sheet found. Use "Site_Summary" or first sheet.', 'error'); return; }
-                    const raw = XLSX.utils.sheet_to_json(sheet);
-                    processData(raw);
-                    document.getElementById('filename').textContent = `✅ Loaded: ${file.name}`;
-                    document.getElementById('coordUploadArea').classList.add('show');
-                    document.getElementById('sampleBtnContainer').innerHTML = '';
-                    if (excelLoaded) initializeDashboard();
-                } catch (err) { showStatus('❌ Error reading Excel: ' + err.message, 'error');
-                    console.error(err); }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-        document.getElementById('coordUploadArea2').addEventListener('click', () => document.getElementById('coordFileInput')
-            .click());
-        document.getElementById('coordFileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                processCoordinates(ev.target.result);
-                document.getElementById('coordUploadArea').classList.remove('show');
-                document.getElementById('coordStatus').innerHTML = `📍 ${Object.keys(siteCoordinates).length} sites`;
-                document.getElementById('coordStatus').style.color = '#2ecc71';
-                showStatus(`✅ Coordinates loaded: ${Object.keys(siteCoordinates).length} sites`, 'success');
-                if (map) updateMapMarkers();
-            };
-            reader.readAsText(file);
-        });
 
         // ========================================================================
         // INIT DASHBOARD
@@ -1124,7 +1029,7 @@
         }
 
         // ========================================================================
-        // INIT MAP (with satellite layer)
+        // INIT MAP
         // ========================================================================
         function initMap() {
             if (map) return;
@@ -1172,9 +1077,22 @@
                     siteChanges[row.SITENAME] = total;
                 });
             }
-            Object.keys(siteCoordinates).forEach(site => {
-                const coords = siteCoordinates[site];
-                const change = siteChanges[site] || 0;
+
+            // Iterate over coordinates (original names)
+            for (const [origName, coords] of Object.entries(siteCoordinates)) {
+                // Find matching site data by normalized name
+                let siteData = null;
+                if (siteSummary) {
+                    const normOrig = normalizeSiteName(origName);
+                    for (const row of siteSummary) {
+                        if (normalizeSiteName(row.SITENAME) === normOrig) {
+                            siteData = row;
+                            break;
+                        }
+                    }
+                }
+                const change = siteData ? siteChanges[siteData.SITENAME] || 0 : 0;
+
                 let color = '#2ecc71',
                     size = 12;
                 if (change > 30) { color = '#e74c3c';
@@ -1187,7 +1105,7 @@
                     iconSize: [size, size],
                     iconAnchor: [size / 2, size / 2]
                 });
-                const siteData = siteSummary ? siteSummary.find(r => r.SITENAME === site) : null;
+
                 let dom2019 = 'N/A',
                     dom2025 = 'N/A';
                 let pct2019 = 0,
@@ -1202,19 +1120,21 @@
                             dom2025 = cls; }
                     });
                 }
+                const displayName = siteData ? siteData.SITENAME : origName;
                 const popup = `
               <div>
-                <strong>${site}</strong><br>
+                <strong>${displayName}</strong><br>
                 <span style="color:#7f8c8d;">Change: </span>
                 <strong style="color:${color};">${change.toFixed(1)}%</strong><br>
                 <span style="color:#7f8c8d;">Highest 2019: </span><strong>${CLASS_DISPLAY_NAMES[dom2019]||dom2019} (${pct2019.toFixed(1)}%)</strong><br>
                 <span style="color:#7f8c8d;">Highest 2025: </span><strong>${CLASS_DISPLAY_NAMES[dom2025]||dom2025} (${pct2025.toFixed(1)}%)</strong>
-                <br><button class="popup-btn" onclick="selectSite('${site}')">📊 View Details</button>
+                <br><button class="popup-btn" onclick="selectSite('${displayName}')">📊 View Details</button>
               </div>
             `;
                 const marker = L.marker([coords.lat, coords.lon], { icon }).bindPopup(popup).addTo(map);
                 markers.push(marker);
-            });
+            }
+
             if (markers.length > 0) {
                 const group = L.featureGroup(markers);
                 map.fitBounds(group.getBounds().pad(0.1));
@@ -1223,18 +1143,24 @@
         }
 
         // ========================================================================
-        // ZOOM FUNCTIONS
+        // ZOOM FUNCTIONS (using normalized lookup)
         // ========================================================================
         function zoomToSite(name) {
             if (!map || name === 'all') return;
-            const c = siteCoordinates[name];
-            if (!c) return;
-            map.setView([c.lat, c.lon], 13, { animate: true });
+            const coords = getCoordinates(name);
+            if (!coords) {
+                console.warn('No coordinates found for site:', name);
+                return;
+            }
+            map.setView([coords.lat, coords.lon], 13, { animate: true });
+            // Find marker by normalized name
+            const normName = normalizeSiteName(name);
             const marker = markers.find(m => {
                 const popup = m.getPopup();
                 if (popup) {
                     const content = popup.getContent();
-                    return content && content.includes(`<strong>${name}</strong>`);
+                    // Check if the popup contains the normalized name (case‑insensitive)
+                    return content && normalizeSiteName(content).includes(normName);
                 }
                 return false;
             });
@@ -1357,7 +1283,7 @@
         // ========================================================================
         function updateDashboard() {
             if (!siteSummary || siteSummary.length === 0) {
-                showStatus('⚠️ No data loaded. Load sample data or upload Excel.', 'warning');
+                showStatus('⚠️ No data loaded. Check console.', 'warning');
                 return;
             }
             const siteSelect = document.getElementById('siteSelect');
@@ -1435,7 +1361,7 @@
         }
 
         // ========================================================================
-        // EXPANDED NARRATIVE – FOCUS ON TREES & CROPS (FIXED DIRECTION)
+        // NARRATIVE (unchanged)
         // ========================================================================
         function updateNarrative(siteData) {
             if (!siteData) {
@@ -1448,7 +1374,6 @@
             const dom2019 = document.getElementById('statDominant2019').textContent;
             const dom2025 = document.getElementById('statDominant2025').textContent;
 
-            // Specific data for Trees and Crops
             const treesChange = siteData['TREES_CHANGE_19_25'] || 0;
             const cropsChange = siteData['CROPS_CHANGE_19_25'] || 0;
             const trees2019 = siteData['TREES_PCT_2019'] || 0;
@@ -1458,19 +1383,16 @@
 
             let narrative = '';
 
-            // --- Paragraph 1: Overview ---
             narrative +=
                 `<p><strong>Overview:</strong> For <strong>${siteName}</strong>, the total land‑use change is <strong>${totalChange.toFixed(1)}%</strong>. The dominant class shifted from <strong>${dom2019}</strong> (2019) to <strong>${dom2025}</strong> (2025).</p>`;
 
-            // --- Paragraph 2: Focus on Trees (with correct direction) ---
             narrative += `<p><strong>🌳 Tree Cover Dynamics:</strong> `;
             const treeDirection = treesChange > 0.1 ? 'increased' : (treesChange < -0.1 ? 'decreased' : 'remained stable');
             narrative += `Tree cover <strong>${treeDirection}</strong> by <strong>${treesChange.toFixed(1)}%</strong>, `;
-            narrative += `from ${trees2019.toFixed(1)}% (2019) to ${trees2025.toFixed(1)}% (2025) of the total area. `;
-
+            narrative += `from ${trees2019.toFixed(1)}% (2019) to ${trees2025.toFixed(1)}% (2025). `;
             if (treesChange < -2) {
                 narrative +=
-                    `This <span class="highlight-down">notable decrease</span> suggests deforestation, land clearing, or conversion to other uses (e.g., agriculture or built‑up areas). `;
+                    `This <span class="highlight-down">notable decrease</span> suggests deforestation, land clearing, or conversion to other uses. `;
             } else if (treesChange > 2) {
                 narrative +=
                     `This <span class="highlight-up">substantial increase</span> points to afforestation, natural regrowth, or improved forest management. `;
@@ -1479,12 +1401,10 @@
             }
             narrative += `</p>`;
 
-            // --- Paragraph 3: Focus on Crops (with correct direction) ---
             narrative += `<p><strong>🌾 Cropland Dynamics:</strong> `;
             const cropDirection = cropsChange > 0.1 ? 'increased' : (cropsChange < -0.1 ? 'decreased' : 'remained stable');
             narrative += `Cropland <strong>${cropDirection}</strong> by <strong>${cropsChange.toFixed(1)}%</strong>, `;
             narrative += `from ${crops2019.toFixed(1)}% to ${crops2025.toFixed(1)}%. `;
-
             if (cropsChange < -2) {
                 narrative +=
                     `This <span class="highlight-down">reduction</span> may indicate agricultural abandonment, land degradation, or conversion to other land uses. `;
@@ -1496,7 +1416,6 @@
             }
             narrative += `</p>`;
 
-            // --- Paragraph 4: Broader Context & Built Area (if relevant) ---
             narrative += `<p><strong>📊 Landscape Context:</strong> `;
             const builtChange = siteData['BUILT_AREA_CHANGE_19_25'] || 0;
             if (builtChange > 2) {
@@ -1677,20 +1596,20 @@
         window.updateSiteFilter = updateSiteFilter;
         window.updateViewFilter = updateViewFilter;
         window.dismissLoading = dismissLoading;
-        window.loadSampleData = loadSampleData;
 
         // ========================================================================
         // STARTUP
         // ========================================================================
-        console.log('🌍 IDP Land Use Change Dashboard (Trees & Crops focus, fixed narrative)');
+        console.log('🌍 IDP Land Use Change Dashboard (auto‑load, fuzzy matching)');
         autoLoadFiles();
         setTimeout(() => {
-            if (!dashboardInitialized && !excelLoaded) {
+            if (!dashboardInitialized) {
                 document.getElementById('loadingOverlay').style.display = 'none';
-                showStatus('📁 No data loaded. Click "Load Sample Data" or upload manually.', 'info');
+                if (!siteSummary) {
+                    showStatus('⚠️ No data could be loaded. Check console and file availability.', 'error');
+                }
             }
-        }, 12000);
+        }, 10000);
     </script>
-
 </body>
 </html>
