@@ -17,7 +17,7 @@
     </script>
 
     <style>
-        /* ====== MAIN STYLES (unchanged) ====== */
+        /* ====== STYLES (unchanged) ====== */
         * {
             margin: 0;
             padding: 0;
@@ -155,14 +155,12 @@
             font-size: 11px;
             margin-left: 6px;
         }
-        /* Map container */
         #map {
             height: 350px;
             border-radius: 8px;
             z-index: 1;
             background: #f8f9fa;
         }
-        /* Fullscreen button inside map card */
         .map-toolbar {
             display: flex;
             justify-content: flex-end;
@@ -182,7 +180,6 @@
         .map-toolbar button:hover {
             background: #2980b9;
         }
-        /* Fullscreen mode: make map fill the screen */
         #map:-webkit-full-screen {
             height: 100vh !important;
             width: 100vw !important;
@@ -649,7 +646,7 @@
             </div>
         </div>
 
-        <!-- RANKING & TABLE – titles are now generic -->
+        <!-- RANKING & TABLE – titles are generic -->
         <div class="grid-2 hidden" id="bottomGrid">
             <div class="card">
                 <h3 id="chart3Title">🏆 Most Changed Sites</h3>
@@ -815,10 +812,8 @@
             const landUseLabel = selectedLandUse === 'all' ? 'All Types' : (CLASS_DISPLAY_NAMES[selectedLandUse] || selectedLandUse);
             document.getElementById('summaryFilterTag').textContent = siteLabel;
             document.getElementById('summaryLanduseTag').textContent = landUseLabel;
-            // chart1 & chart2 still show site label
             document.getElementById('chart1Title').textContent = `📊 ${siteLabel} – Land Use Changes (2019→2025)`;
             document.getElementById('chart2Title').textContent = `📈 ${siteLabel} – Land Use Composition`;
-            // chart3 & table are now generic – no site label
             document.getElementById('chart3Title').textContent = `🏆 Most Changed Sites`;
             document.getElementById('tableTitle').textContent = `📋 Highest Land Use Cover`;
             document.getElementById('allSitesNote').classList.toggle('show', isAllSitesMode);
@@ -1034,7 +1029,6 @@
             if (dashboardInitialized || !siteSummary || siteSummary.length === 0) return;
             dashboardInitialized = true;
 
-            // Populate site select – sorted alphabetically
             const sel = document.getElementById('siteSelect');
             const siteNames = siteSummary.map(row => row.SITENAME).sort((a, b) => a.localeCompare(b));
             sel.innerHTML = '<option value="all">🌍 All Sites (Aggregated)</option>';
@@ -1122,9 +1116,7 @@
                 });
             }
 
-            // Iterate over coordinates (original names)
             for (const [origName, coords] of Object.entries(siteCoordinates)) {
-                // Find matching site data by normalized name
                 let siteData = null;
                 if (siteSummary) {
                     const normOrig = normalizeSiteName(origName);
@@ -1176,7 +1168,6 @@
               </div>
             `;
                 const marker = L.marker([coords.lat, coords.lon], { icon }).bindPopup(popup).addTo(map);
-                // Store the site name for later lookup
                 marker._siteName = displayName;
                 markers.push(marker);
             }
@@ -1189,16 +1180,14 @@
         }
 
         // ========================================================================
-        // ZOOM FUNCTIONS (improved)
+        // ZOOM FUNCTIONS
         // ========================================================================
         function zoomToSite(name) {
             if (!map || name === 'all') return;
 
-            // First try to get coordinates from our lookup
             let coords = getCoordinates(name);
             let foundMarker = null;
 
-            // If no coords found, try to find marker by stored site name
             if (!coords) {
                 for (const marker of markers) {
                     if (marker._siteName && normalizeSiteName(marker._siteName) === normalizeSiteName(name)) {
@@ -1214,10 +1203,8 @@
                 return;
             }
 
-            // Zoom to the coordinates
             map.setView([coords.lat, coords.lng || coords.lon], 13, { animate: true });
 
-            // If we didn't find a marker earlier, try to find one now to open popup
             if (!foundMarker) {
                 for (const marker of markers) {
                     if (marker._siteName && normalizeSiteName(marker._siteName) === normalizeSiteName(name)) {
@@ -1375,9 +1362,7 @@
             } else {
                 siteData = siteSummary.find(row => row.SITENAME === currentSite);
                 if (!siteData) { showStatus(`⚠️ Site "${currentSite}" not found.`, 'warning'); return; }
-                // We will zoom after markers are updated
             }
-            // ensure properties exist
             LAND_USE_CLASSES.forEach(cls => {
                 if (siteData[`${cls}_CHANGE_19_25`] === undefined) siteData[`${cls}_CHANGE_19_25`] = 0;
                 if (siteData[`${cls}_PCT_2019`] === undefined) siteData[`${cls}_PCT_2019`] = 0;
@@ -1388,7 +1373,6 @@
                 if (siteData[`${cls}_2025`] === undefined) siteData[`${cls}_2025`] = 0;
             });
 
-            // Update all charts and stats
             try { updateMainChart(siteData); } catch (e) { console.warn('mainChart error:', e); }
             try { updateCompositionChart(siteData); } catch (e) { console.warn('compositionChart error:', e); }
             try { updateRankingChart(); } catch (e) { console.warn('rankingChart error:', e); }
@@ -1396,12 +1380,9 @@
             try { updateNarrative(siteData); } catch (e) { console.warn('updateNarrative error:', e); }
             try { populateTable(); } catch (e) { console.warn('populateTable error:', e); }
 
-            // Update markers (this creates the markers)
             try { updateMapMarkers(); } catch (e) { console.warn('updateMapMarkers error:', e); }
 
-            // Now zoom to the selected site (if not 'all') – marker now exists
             if (!isAllSitesMode) {
-                // small delay to ensure map is updated
                 setTimeout(() => { zoomToSite(currentSite); }, 100);
             }
         }
@@ -1446,7 +1427,7 @@
         }
 
         // ========================================================================
-        // NARRATIVE (unchanged)
+        // IMPROVED NARRATIVE – more logical and context‑aware
         // ========================================================================
         function updateNarrative(siteData) {
             if (!siteData) {
@@ -1468,51 +1449,57 @@
 
             let narrative = '';
 
-            narrative +=
-                `<p><strong>Overview:</strong> For <strong>${siteName}</strong>, the total land‑use change is <strong>${totalChange.toFixed(1)}%</strong>. The dominant class shifted from <strong>${dom2019}</strong> (2019) to <strong>${dom2025}</strong> (2025).</p>`;
-
-            narrative += `<p><strong>🌳 Tree Cover Dynamics:</strong> `;
-            const treeDirection = treesChange > 0.1 ? 'increased' : (treesChange < -0.1 ? 'decreased' : 'remained stable');
-            narrative += `Tree cover <strong>${treeDirection}</strong> by <strong>${treesChange.toFixed(1)}%</strong>, `;
-            narrative += `from ${trees2019.toFixed(1)}% (2019) to ${trees2025.toFixed(1)}% (2025). `;
-            if (treesChange < -2) {
-                narrative +=
-                    `This <span class="highlight-down">notable decrease</span> suggests deforestation, land clearing, or conversion to other uses. `;
-            } else if (treesChange > 2) {
-                narrative +=
-                    `This <span class="highlight-up">substantial increase</span> points to afforestation, natural regrowth, or improved forest management. `;
+            // ---- Overview ----
+            if (dom2019 === dom2025) {
+                narrative += `<p><strong>Overview:</strong> For <strong>${siteName}</strong>, the total land‑use change is <strong>${totalChange.toFixed(1)}%</strong>. The dominant class remained <strong>${dom2019}</strong> throughout the period (2019–2025).</p>`;
             } else {
-                narrative += `The tree cover remained <strong>relatively stable</strong> over the period. `;
+                narrative += `<p><strong>Overview:</strong> For <strong>${siteName}</strong>, the total land‑use change is <strong>${totalChange.toFixed(1)}%</strong>. The dominant class shifted from <strong>${dom2019}</strong> (2019) to <strong>${dom2025}</strong> (2025).</p>`;
             }
-            narrative += `</p>`;
 
-            narrative += `<p><strong>🌾 Cropland Dynamics:</strong> `;
-            const cropDirection = cropsChange > 0.1 ? 'increased' : (cropsChange < -0.1 ? 'decreased' : 'remained stable');
-            narrative += `Cropland <strong>${cropDirection}</strong> by <strong>${cropsChange.toFixed(1)}%</strong>, `;
-            narrative += `from ${crops2019.toFixed(1)}% to ${crops2025.toFixed(1)}%. `;
-            if (cropsChange < -2) {
-                narrative +=
-                    `This <span class="highlight-down">reduction</span> may indicate agricultural abandonment, land degradation, or conversion to other land uses. `;
-            } else if (cropsChange > 2) {
-                narrative +=
-                    `This <span class="highlight-up">expansion</span> suggests agricultural intensification, new farming areas, or a shift towards cash crops. `;
+            // ---- Trees ----
+            const treeAbs = Math.abs(treesChange);
+            let treeDesc = '';
+            if (treeAbs < 0.1) {
+                treeDesc = `Tree cover remained <strong>virtually unchanged</strong> (${treesChange.toFixed(1)}% change), holding at around ${trees2019.toFixed(1)}% of the total area.`;
+            } else if (treeAbs < 2) {
+                const direction = treesChange > 0 ? 'increased slightly' : 'decreased slightly';
+                treeDesc = `Tree cover <strong>${direction}</strong> by <strong>${treesChange.toFixed(1)}%</strong>, from ${trees2019.toFixed(1)}% (2019) to ${trees2025.toFixed(1)}% (2025). This indicates a minor shift in tree cover.`;
+            } else if (treeAbs < 5) {
+                const direction = treesChange > 0 ? 'moderately increased' : 'moderately decreased';
+                treeDesc = `Tree cover <strong>${direction}</strong> by <strong>${treesChange.toFixed(1)}%</strong>, from ${trees2019.toFixed(1)}% to ${trees2025.toFixed(1)}%. This noticeable change may reflect localised land management or environmental factors.`;
             } else {
-                narrative += `Cropland area remained <strong>fairly constant</strong>, indicating stable agricultural practices. `;
+                const direction = treesChange > 0 ? 'substantially increased' : 'substantially decreased';
+                treeDesc = `Tree cover <strong>${direction}</strong> by <strong>${treesChange.toFixed(1)}%</strong>, from ${trees2019.toFixed(1)}% to ${trees2025.toFixed(1)}%. This significant shift suggests major landscape transformation, possibly afforestation or deforestation.`;
             }
-            narrative += `</p>`;
+            narrative += `<p><strong>🌳 Tree Cover Dynamics:</strong> ${treeDesc}</p>`;
 
+            // ---- Crops ----
+            const cropAbs = Math.abs(cropsChange);
+            let cropDesc = '';
+            if (cropAbs < 0.1) {
+                cropDesc = `Cropland remained <strong>virtually unchanged</strong> (${cropsChange.toFixed(1)}% change), maintaining around ${crops2019.toFixed(1)}% of the area.`;
+            } else if (cropAbs < 2) {
+                const direction = cropsChange > 0 ? 'increased slightly' : 'decreased slightly';
+                cropDesc = `Cropland <strong>${direction}</strong> by <strong>${cropsChange.toFixed(1)}%</strong>, from ${crops2019.toFixed(1)}% to ${crops2025.toFixed(1)}%. This reflects minor fluctuations in agricultural activity.`;
+            } else if (cropAbs < 5) {
+                const direction = cropsChange > 0 ? 'moderately increased' : 'moderately decreased';
+                cropDesc = `Cropland <strong>${direction}</strong> by <strong>${cropsChange.toFixed(1)}%</strong>, from ${crops2019.toFixed(1)}% to ${crops2025.toFixed(1)}%. This suggests a trend in agricultural expansion or contraction.`;
+            } else {
+                const direction = cropsChange > 0 ? 'substantially increased' : 'substantially decreased';
+                cropDesc = `Cropland <strong>${direction}</strong> by <strong>${cropsChange.toFixed(1)}%</strong>, from ${crops2019.toFixed(1)}% to ${crops2025.toFixed(1)}%. This major change indicates significant land‑use pressure on agricultural areas.`;
+            }
+            narrative += `<p><strong>🌾 Cropland Dynamics:</strong> ${cropDesc}</p>`;
+
+            // ---- Context ----
             narrative += `<p><strong>📊 Landscape Context:</strong> `;
             const builtChange = siteData['BUILT_AREA_CHANGE_19_25'] || 0;
-            if (builtChange > 2) {
-                narrative +=
-                    `Notably, <span class="highlight-up">Built Area</span> expanded by ${builtChange.toFixed(1)}%, pointing to possible urbanisation or infrastructure development. `;
-            } else if (builtChange < -1) {
-                narrative +=
-                    `Meanwhile, <span class="highlight-down">Built Area</span> decreased slightly (${builtChange.toFixed(1)}%), which is less common and may indicate demolition or de‑urbanisation. `;
+            if (Math.abs(builtChange) > 1) {
+                const builtDir = builtChange > 0 ? 'expanded' : 'contracted';
+                narrative += `Built‑up area ${builtDir} by ${builtChange.toFixed(1)}%, indicating possible urbanisation or infrastructure changes. `;
             }
 
             if (totalChange > 20) {
-                narrative += `Overall, the landscape experienced <strong>substantial transformation</strong> over the 6‑year period.`;
+                narrative += `Overall, the landscape experienced <strong>substantial transformation</strong> over the 6‑year period, with major shifts in land cover.`;
             } else if (totalChange > 8) {
                 narrative += `The landscape shows <strong>moderate but noticeable</strong> dynamics, especially in vegetation and agriculture.`;
             } else {
@@ -1686,7 +1673,7 @@
         // ========================================================================
         // STARTUP
         // ========================================================================
-        console.log('🌍 IDP Land Use Change Dashboard (auto‑load, sorted, zoom fixed, fullscreen)');
+        console.log('🌍 IDP Land Use Change Dashboard (improved narrative)');
         autoLoadFiles();
         setTimeout(() => {
             if (!dashboardInitialized) {
